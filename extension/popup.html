@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 350px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+    }
+    input, button {
+      width: 100%;
+      padding: 8px;
+      margin: 4px 0;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    .remove-btn {
+      width: auto;
+      padding: 2px 8px;
+      background: #ef4444;
+      font-size: 18px;
+    }
+    .remove-btn:hover {
+      background: #dc2626;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0 0 0;
+    }
+    li {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    .email-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #eee;
+    }
+    .email-section label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h2>Zone</h2>
+
+  <input id="site" placeholder="youtube.com" />
+  <input id="limit" type="number" placeholder="minutes/day" min="1" />
+  <button id="add">Add Site</button>
+
+  <ul id="list"></ul>
+
+  <div class="email-section">
+    <label>Email (for unlock codes):</label>
+    <input id="email" type="email" placeholder="your@email.com" />
+    <button id="setEmail">Save Email</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
