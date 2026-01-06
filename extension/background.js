@@ -40,7 +40,7 @@ let activeTab = null;
 let startTime = null;
 let heartbeatInterval = null;
 let lastConfigCheck = 0;
-const CONFIG_CHECK_INTERVAL = 30000; // Only check config every 30 seconds max
+const CONFIG_CHECK_INTERVAL = 10000; // Check config every 10 seconds for better responsiveness
 
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   const tab = await chrome.tabs.get(tabId);
@@ -73,10 +73,70 @@ async function handleTabChange(url) {
     return;
   }
 
-  // Throttle config checks - only check if enough time has passed
+  // ALWAYS start timer first for immediate tracking, regardless of config sync timing
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase().replace(/^www\./, '');
+    
+    const rule = (rules || []).find(r => {
+      const domain = (r.domain || '').toLowerCase().replace(/^www\./, '');
+      return hostname === domain || 
+             hostname.endsWith('.' + domain) ||
+             hostname.includes(domain);
+    });
+    
+    if (rule) {
+      activeTab = rule.domain;
+      startTime = Date.now();
+      console.log('[Zone] Starting timer for:', rule.domain);
+      startHeartbeat(uuid, rule.domain);
+    }
+  } catch (e) {
+    // URL parsing failed, try simple match
+    const rule = (rules || []).find(r => url && url.includes(r.domain));
+    if (rule) {
+      activeTab = rule.domain;
+      startTime = Date.now();
+      console.log('[Zone] Starting timer for:', rule.domain);
+      startHeartbeat(uuid, rule.domain);
+    }
+  }
+
+  // Then handle config sync (throttled)
   const timeSinceLastCheck = Date.now() - lastConfigCheck;
   if (timeSinceLastCheck < CONFIG_CHECK_INTERVAL) {
-    // Too soon since last check, skip it
+    // Too soon since last check, but still check local rules for immediate blocking
+    const { rules } = await chrome.storage.local.get(['rules']);
+    if (rules) {
+      try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase().replace(/^www\./, '');
+        
+        const rule = (rules || []).find(r => {
+          const domain = (r.domain || '').toLowerCase().replace(/^www\./, '');
+          return hostname === domain || 
+                 hostname.endsWith('.' + domain) ||
+                 hostname.includes(domain);
+        });
+        
+        if (rule && rule.dailyLimit > 0) {
+          const usedToday = Number(rule.usedToday || 0);
+          const dailyLimit = Number(rule.dailyLimit || 0);
+          const shouldBlock = rule.block === true || usedToday >= dailyLimit;
+          
+          if (shouldBlock) {
+            // Notify content script to block immediately
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+              if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, { action: 'checkBlock' }).catch(() => {});
+              }
+            });
+          }
+        }
+      } catch (e) {
+        // Ignore URL parsing errors
+      }
+    }
     return;
   }
 
@@ -131,34 +191,6 @@ async function handleTabChange(url) {
         !error.message.includes('Failed to fetch') &&
         !error.message.includes('Too many config requests')) {
       console.warn('Config sync failed:', error.message);
-    }
-  }
-
-  // Better domain matching
-  try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.toLowerCase().replace(/^www\./, '');
-    
-    const rule = (rules || []).find(r => {
-      const domain = (r.domain || '').toLowerCase().replace(/^www\./, '');
-      return hostname === domain || 
-             hostname.endsWith('.' + domain) ||
-             hostname.includes(domain);
-    });
-    
-    if (rule) {
-      activeTab = rule.domain;
-      startTime = Date.now();
-      console.log('[Zone] Starting timer for:', rule.domain);
-      startHeartbeat(uuid, rule.domain);
-    }
-  } catch (e) {
-    // URL parsing failed, try simple match
-    const rule = (rules || []).find(r => url && url.includes(r.domain));
-    if (rule) {
-      activeTab = rule.domain;
-      startTime = Date.now();
-      startHeartbeat(uuid, rule.domain);
     }
   }
 }
@@ -216,6 +248,8 @@ function startHeartbeat(uuid, domain) {
     return;
   }
 
+  console.log(`[Zone] Starting heartbeat for ${domain} every 30 seconds`);
+
   // Send heartbeat every 30 seconds
   heartbeatInterval = setInterval(async () => {
     if (!startTime || !uuid || !domain) return;
@@ -223,11 +257,14 @@ function startHeartbeat(uuid, domain) {
     const seconds = (Date.now() - startTime) / 1000;
     if (seconds < 1) return;
 
+    console.log(`[Zone] Sending heartbeat: ${domain} - ${seconds.toFixed(1)} seconds`);
+
     try {
       await apiRequest('/heartbeat', {
         method: 'POST',
         body: { uuid, domain, seconds }
       });
+      console.log(`[Zone] Heartbeat sent successfully: ${domain} - ${seconds.toFixed(1)}s`);
       startTime = Date.now(); // Reset timer after successful heartbeat
     } catch (error) {
       // Silently fail for network errors
@@ -373,4 +410,4 @@ setInterval(async () => {
       console.warn('Periodic sync failed:', error.message);
     }
   }
-}, 60000); // Check every minute, but throttled to max once per 30 seconds
+}, 30000); // Check every 30 seconds, but throttled to max once per 10 seconds

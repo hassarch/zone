@@ -7,8 +7,11 @@ router.post("/", validateHeartbeat, async (req, res, next) => {
   try {
     const { uuid, domain, seconds } = req.body;
 
+    console.log(`[Heartbeat] Received: ${domain} - ${seconds} seconds for user ${uuid.substring(0, 8)}...`);
+
     const user = await User.findOne({ uuid });
     if (!user) {
+      console.log(`[Heartbeat] User not found: ${uuid.substring(0, 8)}...`);
       return res.status(404).json({
         success: false,
         error: "User not found"
@@ -24,7 +27,7 @@ router.post("/", validateHeartbeat, async (req, res, next) => {
     
     if (!rule) {
       // Rule doesn't exist, which is fine - just acknowledge
-      logger.debug(`No rule found for domain: ${domain}`);
+      console.log(`[Heartbeat] No rule found for domain: ${domain}`);
       user.lastHeartbeat = new Date();
       await user.save();
       return res.status(200).json({
@@ -36,13 +39,17 @@ router.post("/", validateHeartbeat, async (req, res, next) => {
     const today = new Date().toDateString();
     const lastResetDate = rule.lastReset ? new Date(rule.lastReset) : null;
     if (!lastResetDate || lastResetDate.toDateString() !== today) {
+      console.log(`[Heartbeat] Daily reset for ${domain}: ${rule.usedToday} -> 0`);
       rule.usedToday = 0;
       rule.lastReset = new Date();
     }
 
     const secs = Number(seconds) || 0;
-    rule.usedToday = Number(rule.usedToday || 0) + secs / 60;
+    const oldUsedToday = Number(rule.usedToday || 0);
+    rule.usedToday = oldUsedToday + secs / 60;
     user.lastHeartbeat = new Date();
+
+    console.log(`[Heartbeat] Updated ${domain}: ${oldUsedToday.toFixed(2)} -> ${rule.usedToday.toFixed(2)} minutes (added ${(secs/60).toFixed(2)})`);
 
     await user.save();
     res.status(200).json({

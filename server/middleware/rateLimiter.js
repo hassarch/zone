@@ -23,7 +23,7 @@ const apiLimiter = rateLimit({
 
 // More lenient rate limiter for config endpoint (since it's checked frequently)
 const configLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 100, // 1 minute
   max: 60, // 60 requests per minute per IP (increased to handle frequent SPA navigation)
   message: {
     success: false,

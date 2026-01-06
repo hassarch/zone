@@ -3,11 +3,11 @@ const API_BASE_URL = 'http://localhost:3033/api';
 // Config caching and rate limiting state
 let configCache = null;
 let configCacheTime = 0;
-const CONFIG_CACHE_DURATION = 5000; // 5 seconds cache
+const CONFIG_CACHE_DURATION = 30000; // 30 seconds cache (longer to reduce API calls)
 let lastRequestTime = 0;
 let backoffUntil = 0;
 let consecutive429Errors = 0;
-const MIN_REQUEST_INTERVAL = 500; // Minimum 500ms between requests
+const MIN_REQUEST_INTERVAL = 2000; // Minimum 2 seconds between requests (less aggressive)
 
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -36,8 +36,8 @@ async function apiRequest(endpoint, options = {}) {
     // Handle 429 errors with exponential backoff
     if (response.status === 429) {
       consecutive429Errors++;
-      // Exponential backoff: 2s, 4s, 8s, 16s (max 30s)
-      const backoffMs = Math.min(2000 * Math.pow(2, consecutive429Errors - 1), 30000);
+      // Less aggressive backoff: 5s, 10s, 20s, 30s (max)
+      const backoffMs = Math.min(5000 * consecutive429Errors, 30000);
       backoffUntil = Date.now() + backoffMs;
       console.log(`[Zone] Rate limited (429). Backing off for ${backoffMs}ms`);
       return { success: false, data, status: 429 };
@@ -198,7 +198,7 @@ function processConfigResponse(result, currentDomain, localRules) {
 function checkLocalRules(currentDomain, rules) {
   if (!rules || rules.length === 0) {
     console.log('[Zone] No local rules to check');
-    return;
+    return false;
   }
   
   const hostnameLower = currentDomain.toLowerCase().replace(/^www\./, '');
@@ -321,11 +321,10 @@ if (document.readyState === 'loading') {
 let lastUrl = location.href;
 let checkInterval = null;
 let lastCheckTime = 0;
-const MIN_CHECK_INTERVAL = 10000; // Only check every 10 seconds minimum
+const MIN_CHECK_INTERVAL = 10000; // Check every 10 seconds to avoid rate limiting
 
 function startPeriodicCheck() {
-  // Check every 5 seconds for blocking status (more frequent for better responsiveness)
-  // But only make API requests every 30 seconds
+  // Check every 5 seconds for local rules, but API calls are throttled
   if (checkInterval) clearInterval(checkInterval);
   
   checkInterval = setInterval(() => {
@@ -333,7 +332,7 @@ function startPeriodicCheck() {
       // Check if URL changed (SPA navigation)
       if (location.href !== lastUrl) {
         lastUrl = location.href;
-        lastCheckTime = Date.now();
+        console.log('[Zone] URL changed, checking immediately');
         
         // Immediately check local rules first
         chrome.storage.local.get(['rules'], ({ rules = [] }) => {
@@ -346,7 +345,7 @@ function startPeriodicCheck() {
           if (rule && rule.dailyLimit > 0) {
             const usedToday = Number(rule.usedToday || 0);
             const dailyLimit = Number(rule.dailyLimit || 0);
-            const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit - 0.01);
+            const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit);
             
             if (shouldBlock) {
               console.log('[Zone] ⛔ URL changed - blocking immediately');
@@ -374,7 +373,7 @@ function startPeriodicCheck() {
           if (rule && rule.dailyLimit > 0) {
             const usedToday = Number(rule.usedToday || 0);
             const dailyLimit = Number(rule.dailyLimit || 0);
-            const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit - 0.01);
+            const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit);
             
             if (shouldBlock) {
               console.log('[Zone] ⛔ Periodic check - blocking now!');
@@ -384,7 +383,7 @@ function startPeriodicCheck() {
           }
         });
         
-        // Only make API requests every 30 seconds
+        // Only make API requests every 10 seconds to avoid rate limiting
         const timeSinceLastCheck = Date.now() - lastCheckTime;
         if (timeSinceLastCheck >= MIN_CHECK_INTERVAL) {
           lastCheckTime = Date.now();
@@ -400,7 +399,7 @@ function startPeriodicCheck() {
         if (checkInterval) clearInterval(checkInterval);
       }
     }
-  }, 5000); // Check every 5 seconds (but API calls are throttled)
+  }, 5000); // Check every 5 seconds for local rules, API calls are throttled
 }
 
 // Start periodic checking
@@ -409,6 +408,8 @@ startPeriodicCheck();
 // Also check on popstate (browser back/forward in SPA)
 window.addEventListener('popstate', () => {
   lastUrl = location.href;
+  console.log('[Zone] Popstate event - checking blocking');
+  
   // Immediate local check
   chrome.storage.local.get(['rules'], ({ rules = [] }) => {
     const hostname = window.location.hostname.toLowerCase().replace(/^www\./, '');
@@ -417,21 +418,20 @@ window.addEventListener('popstate', () => {
       return hostname === domain || hostname.endsWith('.' + domain);
     });
     
-    const usedToday = Number(rule.usedToday || 0);
-    const dailyLimit = Number(rule.dailyLimit || 0);
-    const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit);
-    
-    if (rule && rule.dailyLimit > 0 && shouldBlock) {
-      console.log('[Zone] ⛔ Popstate - blocking');
-      blockPage(window.location.hostname);
-      return;
+    if (rule && rule.dailyLimit > 0) {
+      const usedToday = Number(rule.usedToday || 0);
+      const dailyLimit = Number(rule.dailyLimit || 0);
+      const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit);
+      
+      if (shouldBlock) {
+        console.log('[Zone] ⛔ Popstate - blocking');
+        blockPage(window.location.hostname);
+        return;
+      }
     }
     
-    const timeSinceLastCheck = Date.now() - lastCheckTime;
-    if (timeSinceLastCheck >= MIN_CHECK_INTERVAL) {
-      lastCheckTime = Date.now();
-      checkAndBlock().catch(() => {});
-    }
+    // Then check with backend
+    checkAndBlock().catch(() => {});
   });
 });
 
