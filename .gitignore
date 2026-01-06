@@ -45,3 +45,9 @@ DEBUGGING.md
 README.md
 FIXES_APPLIED.md
 QUICKSTART.md
+
+
+test-extension.js
+force-time-tracking.js
+debug-heartbeat.js
+check-background.js
