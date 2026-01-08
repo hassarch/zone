@@ -77,17 +77,23 @@ async function checkAndBlock() {
       return; // Already blocked, don't check again
     }
 
+    // ALWAYS check local rules FIRST for immediate blocking
+    const localBlocked = checkLocalRules(currentDomain, rules);
+    if (localBlocked) {
+      return; // Already blocked based on local rules
+    }
+
     // Check if we're in backoff period
     const now = Date.now();
     if (backoffUntil > now) {
       console.log(`[Zone] In backoff period, skipping request. ${Math.ceil((backoffUntil - now) / 1000)}s remaining`);
-      // Use cached config or local rules
+      // Use cached config or local rules during backoff
       if (configCache && configCacheTime > now - CONFIG_CACHE_DURATION) {
         console.log('[Zone] Using cached config during backoff');
         return processConfigResponse(configCache, currentDomain, rules);
       }
-      // Fallback to local rules
-      return checkLocalRules(currentDomain, rules);
+      // Fallback to local rules only during backoff
+      return;
     }
 
     // Throttle requests - don't make requests too frequently
@@ -220,11 +226,12 @@ function checkLocalRules(currentDomain, rules) {
       usedToday,
       dailyLimit,
       blockFlag,
-      shouldBlock
+      shouldBlock,
+      exceedsLimit: usedToday >= dailyLimit
     });
     
     if (shouldBlock) {
-      console.log('[Zone] ⛔ Blocking based on local rules');
+      console.log('[Zone] ⛔ BLOCKING NOW - Local rule exceeded');
       blockPage(currentDomain);
       return true;
     }
@@ -262,26 +269,36 @@ function checkLocalRules(currentDomain, rules) {
           const dailyLimit = Number(rule.dailyLimit || 0);
           const blockFlag = rule.block === true;
           
-          console.log('[Zone] Rule check:', {
+          console.log('[Zone] Immediate rule check:', {
             domain: rule.domain,
             usedToday,
             dailyLimit,
             blockFlag,
-            shouldBlock: blockFlag || usedToday >= dailyLimit
+            shouldBlock: blockFlag || usedToday >= dailyLimit,
+            exceedsLimit: usedToday >= dailyLimit
           });
           
           // Block if block flag is true OR if usedToday >= dailyLimit
-          // Use >= with a small tolerance for floating point issues
-          const shouldBlock = blockFlag || (dailyLimit > 0 && usedToday >= dailyLimit - 0.01);
+          const shouldBlock = blockFlag || (dailyLimit > 0 && usedToday >= dailyLimit);
           
           if (shouldBlock) {
-            console.log('[Zone] ⛔ IMMEDIATE BLOCK - Local rule exceeded:', {
+            console.log('[Zone] ⛔ IMMEDIATE BLOCK - Limit exceeded!', {
               usedToday,
               dailyLimit,
               blockFlag,
               shouldBlock
             });
-            blockPage(window.location.hostname);
+            
+            // Block immediately - don't wait for page to load
+            document.addEventListener('DOMContentLoaded', () => {
+              blockPage(window.location.hostname);
+            });
+            
+            // Also block if DOM is already ready
+            if (document.readyState !== 'loading') {
+              blockPage(window.location.hostname);
+            }
+            
             return;
           } else {
             console.log('[Zone] Not blocking yet:', {
@@ -375,8 +392,16 @@ function startPeriodicCheck() {
             const dailyLimit = Number(rule.dailyLimit || 0);
             const shouldBlock = rule.block === true || (dailyLimit > 0 && usedToday >= dailyLimit);
             
+            console.log('[Zone] Periodic local check:', {
+              domain: rule.domain,
+              usedToday,
+              dailyLimit,
+              shouldBlock,
+              exceedsLimit: usedToday >= dailyLimit
+            });
+            
             if (shouldBlock) {
-              console.log('[Zone] ⛔ Periodic check - blocking now!');
+              console.log('[Zone] ⛔ Periodic check - BLOCKING NOW!');
               blockPage(window.location.hostname);
               return;
             }
@@ -439,6 +464,40 @@ window.addEventListener('popstate', () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     checkAndBlock().catch(() => {});
+  }
+});
+
+// Listen for storage changes to immediately check blocking
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.rules) {
+    console.log('[Zone] Rules changed in storage, checking blocking...');
+    
+    const newRules = changes.rules.newValue || [];
+    const currentDomain = window.location.hostname.toLowerCase().replace(/^www\./, '');
+    
+    const rule = newRules.find(r => {
+      const domain = (r.domain || '').toLowerCase().replace(/^www\./, '');
+      return currentDomain === domain || currentDomain.endsWith('.' + domain);
+    });
+    
+    if (rule && rule.dailyLimit > 0) {
+      const usedToday = Number(rule.usedToday || 0);
+      const dailyLimit = Number(rule.dailyLimit || 0);
+      const shouldBlock = rule.block === true || usedToday >= dailyLimit;
+      
+      console.log('[Zone] Storage change - rule check:', {
+        domain: rule.domain,
+        usedToday,
+        dailyLimit,
+        shouldBlock,
+        exceedsLimit: usedToday >= dailyLimit
+      });
+      
+      if (shouldBlock && !document.getElementById('zone-blocker')) {
+        console.log('[Zone] ⛔ Storage change triggered blocking!');
+        blockPage(window.location.hostname);
+      }
+    }
   }
 });
 
