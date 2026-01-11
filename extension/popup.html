@@ -3,78 +3,317 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body {
-      width: 350px;
-      padding: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
-    }
-    h2 {
-      margin: 0 0 16px 0;
-      font-size: 20px;
-    }
-    input, button {
-      width: 100%;
-      padding: 8px;
-      margin: 4px 0;
+    * {
+      margin: 0;
+      padding: 0;
       box-sizing: border-box;
-      border: 1px solid #ddd;
-      border-radius: 4px;
     }
-    button {
-      background: #3b82f6;
+    
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      font-size: 14px;
+      background: #ffffff;
+      color: #1a1a1a;
+    }
+    
+    .header {
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      border: none;
-      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .header-logo {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+    }
+    
+    .header-content {
+      flex: 1;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .content {
+      padding: 20px;
+    }
+    
+    /* Live Counter */
+    .live-counter {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .live-counter.hidden {
+      display: none;
+    }
+    
+    .counter-domain {
+      font-size: 13px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 12px;
+      text-transform: lowercase;
+    }
+    
+    .counter-time {
+      font-size: 48px;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+      color: #10b981;
+      margin: 12px 0;
+      line-height: 1;
+    }
+    
+    .counter-time.warning {
+      color: #f59e0b;
+    }
+    
+    .counter-time.danger {
+      color: #ef4444;
+    }
+    
+    .counter-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      margin-bottom: 12px;
       font-weight: 500;
     }
-    button:hover {
-      background: #2563eb;
+    
+    .counter-progress {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 12px;
     }
-    .remove-btn {
-      width: auto;
-      padding: 2px 8px;
+    
+    .counter-progress-bar {
+      height: 100%;
+      background: #10b981;
+      transition: width 0.3s ease, background-color 0.3s ease;
+      border-radius: 2px;
+    }
+    
+    .counter-progress-bar.warning {
+      background: #f59e0b;
+    }
+    
+    .counter-progress-bar.danger {
       background: #ef4444;
-      font-size: 18px;
     }
-    .remove-btn:hover {
-      background: #dc2626;
+    
+    .counter-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 11px;
+      color: #6b7280;
     }
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 16px 0 0 0;
+    
+    /* Form Section */
+    .form-section {
+      margin-bottom: 20px;
     }
-    li {
-      padding: 8px;
-      border-bottom: 1px solid #eee;
-    }
-    .email-section {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid #eee;
-    }
-    .email-section label {
-      display: block;
-      margin-bottom: 4px;
+    
+    .form-title {
       font-size: 12px;
-      color: #666;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+      background: #f9fafb;
+    }
+    
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    input::placeholder {
+      color: #9ca3af;
+    }
+    
+    button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+    }
+    
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    /* Rules List */
+    .rules-list {
+      list-style: none;
+      margin-top: 16px;
+    }
+    
+    .rule-item {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    
+    .rule-item:hover {
+      background: #f3f4f6;
+    }
+    
+    .rule-info {
+      flex: 1;
+    }
+    
+    .rule-domain {
+      font-weight: 600;
+      color: #1a1a1a;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    
+    .rule-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+    
+    .rule-countdown {
+      font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+      font-weight: 600;
+      color: #10b981;
+    }
+    
+    .rule-countdown.warning {
+      color: #f59e0b;
+    }
+    
+    .rule-countdown.danger {
+      color: #ef4444;
+    }
+    
+    .remove-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      background: #fee2e2;
+      color: #ef4444;
+      border-radius: 6px;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      box-shadow: none;
+    }
+    
+    .remove-btn:hover {
+      background: #fecaca;
+      transform: scale(1.05);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+    
+    .empty-state-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.5;
     }
   </style>
 </head>
 <body>
-  <h2>Zone</h2>
+  <div class="header">
+    <img src="icons/logo.png" alt="Zone Logo" class="header-logo">
+    <div class="header-content">
+      <h1>Zone</h1>
+      <p>Stay focused, stay productive</p>
+    </div>
+  </div>
 
-  <input id="site" placeholder="youtube.com" />
-  <input id="limit" type="number" placeholder="minutes/day" min="1" />
-  <button id="add">Add Site</button>
+  <div class="content">
+    <!-- Live Counter -->
+    <div id="liveCounter" class="live-counter hidden">
+      <div class="counter-label">Currently Active</div>
+      <div class="counter-domain" id="counterDomain">youtube.com</div>
+      <div class="counter-time" id="counterTime">0:00</div>
+      <div class="counter-progress">
+        <div class="counter-progress-bar" id="counterProgressBar"></div>
+      </div>
+      <div class="counter-stats">
+        <span id="counterUsed">0 min used</span>
+        <span id="counterRemaining">0 min left</span>
+      </div>
+    </div>
 
-  <ul id="list"></ul>
+    <!-- Add Rule Form -->
+    <div class="form-section">
+      <div class="form-title">Add Website</div>
+      <input id="site" placeholder="youtube.com" />
+      <input id="limit" type="number" placeholder="Daily limit (minutes)" min="1" />
+      <button id="add">Add Rule</button>
+    </div>
 
-  <div class="email-section">
-    <label>Email (for unlock codes):</label>
-    <input id="email" type="email" placeholder="your@email.com" />
-    <button id="setEmail">Save Email</button>
+    <!-- Rules List -->
+    <div class="form-section">
+      <div class="form-title">Your Rules</div>
+      <ul id="list" class="rules-list"></ul>
+    </div>
   </div>
 
   <script src="popup.js"></script>

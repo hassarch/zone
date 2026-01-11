@@ -516,199 +516,174 @@ if (chrome && chrome.runtime) {
 }
 
 function blockPage(domain) {
+  // Check if already blocked to prevent blinking
+  if (document.getElementById('zone-blocker')) {
+    return; // Already blocked, don't recreate
+  }
+
   // Prevent page content from loading
   document.documentElement.innerHTML = "";
   document.body.innerHTML = "";
+  
+  // Reset body styles
+  document.body.style.margin = '0';
+  document.body.style.padding = '0';
+  document.body.style.overflow = 'hidden';
 
   const overlay = document.createElement("div");
   overlay.id = "zone-blocker";
   overlay.innerHTML = `
-    <div style="text-align: center; max-width: 500px; padding: 40px;">
-      <h1 style="font-size: 48px; margin: 0 0 20px 0;">⛔</h1>
-      <h1 style="font-size: 32px; margin: 0 0 16px 0;">Time's Up</h1>
-      <p style="font-size: 18px; margin: 0 0 32px 0; color: #94a3b8;">
-        You've reached your daily limit for ${domain}<br>
-        Come back tomorrow or request an unlock code
+    <div style="
+      text-align: center;
+      max-width: 900px;
+      width: 85%;
+      padding: 80px 60px;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      margin: auto;
+    ">
+      <!-- Logo -->
+      <div style="
+        width: 180px;
+        height: 180px;
+        margin: 0 auto 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <img src="${chrome.runtime.getURL('icons/logo.png')}" alt="Zone Logo" style="
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          filter: drop-shadow(0 10px 30px rgba(102, 126, 234, 0.3));
+        ">
+      </div>
+      
+      <!-- Title -->
+      <h1 style="
+        font-size: 56px;
+        font-weight: 700;
+        margin: 0 0 24px 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      ">Time's Up!</h1>
+      
+      <!-- Message -->
+      <p style="
+        font-size: 24px;
+        color: #4a5568;
+        margin: 0 0 16px 0;
+        line-height: 1.6;
+      ">
+        You've reached your daily limit for
       </p>
-      <div id="unlock-section">
-        <button id="request-unlock" style="
-          background: #3b82f6;
-          color: white;
-          border: none;
-          padding: 12px 24px;
-          font-size: 16px;
-          border-radius: 8px;
-          cursor: pointer;
+      
+      <!-- Domain Badge -->
+      <div style="
+        display: inline-block;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 16px 32px;
+        border-radius: 12px;
+        margin: 0 0 40px 0;
+      ">
+        <span style="
+          font-size: 22px;
           font-weight: 600;
-        ">Request Unlock Code</button>
+          color: #2d3748;
+        ">${domain}</span>
       </div>
-      <div id="verify-section" style="display: none; margin-top: 20px;">
-        <p style="margin-bottom: 12px;">Enter the 6-digit code sent to your email:</p>
-        <input type="text" id="otp-input" maxlength="6" placeholder="000000" style="
-          padding: 12px;
-          font-size: 18px;
-          text-align: center;
-          letter-spacing: 8px;
-          width: 200px;
-          border: 2px solid #334155;
-          border-radius: 8px;
-          background: #1e293b;
-          color: white;
-          margin-bottom: 12px;
-        " />
-        <br>
-        <button id="verify-otp" style="
-          background: #10b981;
-          color: white;
-          border: none;
-          padding: 12px 24px;
+      
+      <!-- Motivational Message -->
+      <p style="
+        font-size: 18px;
+        color: #718096;
+        margin: 0 0 48px 0;
+        line-height: 1.8;
+      ">
+        Take a break and come back tomorrow.<br>
+        Your focus time will reset at midnight.
+      </p>
+      
+      <!-- Tips Section -->
+      <div style="
+        background: #f7fafc;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: left;
+        margin-top: 40px;
+      ">
+        <h3 style="
           font-size: 16px;
-          border-radius: 8px;
-          cursor: pointer;
           font-weight: 600;
-          margin-right: 8px;
-        ">Verify</button>
-        <button id="cancel-verify" style="
-          background: #64748b;
-          color: white;
-          border: none;
-          padding: 12px 24px;
+          color: #4a5568;
+          margin: 0 0 20px 0;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        ">💡 Productivity Tips</h3>
+        <ul style="
+          margin: 0;
+          padding: 0 0 0 24px;
+          color: #718096;
           font-size: 16px;
-          border-radius: 8px;
-          cursor: pointer;
-          font-weight: 600;
-        ">Cancel</button>
+          line-height: 2.2;
+        ">
+          <li>Take a 5-minute walk to refresh your mind</li>
+          <li>Drink some water and stretch</li>
+          <li>Work on a different task or project</li>
+          <li>Review your goals for the day</li>
+        </ul>
       </div>
-      <div id="message" style="margin-top: 20px; font-size: 14px;"></div>
+      
+      <!-- Footer -->
+      <div style="
+        margin-top: 40px;
+        padding-top: 32px;
+        border-top: 1px solid #e2e8f0;
+      ">
+        <p style="
+          font-size: 14px;
+          color: #a0aec0;
+          margin: 0;
+        ">
+          Blocked by Zone • Helping you stay focused
+        </p>
+      </div>
     </div>
   `;
 
   overlay.style.cssText = `
     position: fixed;
     inset: 0;
-    background: #0f172a;
-    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 999999;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    animation: fadeIn 0.3s ease-in;
+    padding: 40px 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
   `;
 
-  document.body.appendChild(overlay);
-
-  // Request unlock button
-  const requestBtn = document.getElementById('request-unlock');
-  const verifySection = document.getElementById('verify-section');
-  const requestSection = document.getElementById('unlock-section');
-  const messageDiv = document.getElementById('message');
-  const otpInput = document.getElementById('otp-input');
-  const verifyBtn = document.getElementById('verify-otp');
-  const cancelBtn = document.getElementById('cancel-verify');
-
-  requestBtn.onclick = async () => {
-    const { uuid, email } = await chrome.storage.local.get(['uuid', 'email']);
-    
-    if (!uuid) {
-      messageDiv.textContent = 'Error: UUID not found';
-      messageDiv.style.color = '#ef4444';
-      return;
-    }
-
-    if (!email) {
-      messageDiv.textContent = 'Please set your email in the extension popup first!';
-      messageDiv.style.color = '#f59e0b';
-      return;
-    }
-
-    requestBtn.disabled = true;
-    requestBtn.textContent = 'Sending...';
-    messageDiv.textContent = '';
-
-    const result = await apiRequest('/unlock/request', {
-      method: 'POST',
-      body: { uuid, domain }
-    });
-
-    if (result.success && result.data) {
-      if (result.data.sent) {
-        messageDiv.textContent = result.data.otp 
-          ? `Code sent! (Dev code: ${result.data.otp})` 
-          : 'Code sent to your email!';
-        messageDiv.style.color = '#10b981';
-        requestSection.style.display = 'none';
-        verifySection.style.display = 'block';
-        otpInput.focus();
-      } else {
-        messageDiv.textContent = 'Failed to send code. Please try again.';
-        messageDiv.style.color = '#ef4444';
-        requestBtn.disabled = false;
-        requestBtn.textContent = 'Request Unlock Code';
+  // Add fade-in animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
       }
-    } else {
-      messageDiv.textContent = result.data?.error || 'Failed to send code';
-      messageDiv.style.color = '#ef4444';
-      requestBtn.disabled = false;
-      requestBtn.textContent = 'Request Unlock Code';
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
     }
-  };
+  `;
+  document.head.appendChild(style);
 
-  verifyBtn.onclick = async () => {
-    const otp = otpInput.value.trim();
-    
-    if (!otp || otp.length !== 6) {
-      messageDiv.textContent = 'Please enter a 6-digit code';
-      messageDiv.style.color = '#ef4444';
-      return;
-    }
-
-    const { uuid } = await chrome.storage.local.get(['uuid']);
-    
-    if (!uuid) {
-      messageDiv.textContent = 'Error: UUID not found';
-      messageDiv.style.color = '#ef4444';
-      return;
-    }
-
-    verifyBtn.disabled = true;
-    verifyBtn.textContent = 'Verifying...';
-    messageDiv.textContent = '';
-
-    const result = await apiRequest('/unlock/verify', {
-      method: 'POST',
-      body: { uuid, otp }
-    });
-
-    if (result.success && result.data && result.data.unlocked) {
-      messageDiv.textContent = 'Unlocked! Reloading page...';
-      messageDiv.style.color = '#10b981';
-      
-      // Wait a moment then reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } else {
-      messageDiv.textContent = result.data?.error || 'Invalid code. Please try again.';
-      messageDiv.style.color = '#ef4444';
-      verifyBtn.disabled = false;
-      verifyBtn.textContent = 'Verify';
-      otpInput.value = '';
-      otpInput.focus();
-    }
-  };
-
-  cancelBtn.onclick = () => {
-    verifySection.style.display = 'none';
-    requestSection.style.display = 'block';
-    messageDiv.textContent = '';
-    otpInput.value = '';
-  };
-
-  // Allow Enter key to verify
-  otpInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      verifyBtn.click();
-    }
-  });
+  document.body.appendChild(overlay);
 }

@@ -2,9 +2,9 @@
 
 <div align="center">
 
+<img src="extension/icons/logo.png" alt="Zone Logo" width="200"/>
 
 **A Chrome extension that helps you stay focused by tracking and limiting time spent on distracting websites.**
-
 
 </div>
 
@@ -13,10 +13,11 @@
 - 🕐 **Time Tracking** - Automatically tracks time spent on specified websites
 - 🚫 **Smart Blocking** - Blocks sites when daily limits are reached
 - 📱 **SPA Support** - Works with Single Page Applications like YouTube
-- 🔓 **Unlock Codes** - Request temporary access via email verification
 - 📊 **Real-time Stats** - View usage statistics in the popup
 - 🔄 **Background Sync** - Syncs data across browser sessions
 - ⚡ **Instant Response** - Blocks sites within seconds of limit being reached
+- 🎨 **Beautiful UI** - Modern, minimal design with gradient effects
+- ⏱️ **Live Counter** - Real-time countdown showing remaining time
 
 ## 🚀 Quick Start
 
@@ -46,8 +47,9 @@ Create a `.env` file in the `server` directory:
 NODE_ENV=development
 PORT=3033
 MONGO_URI=mongodb://localhost:27017/zone
-EMAIL=your-email@gmail.com
-EMAIL_PASS=your-app-password
+```
+
+**Note:** Email configuration is no longer needed as the unlock feature has been removed.
 ```
 
 Start the server:
@@ -75,7 +77,7 @@ You should see:
    - **Site**: `youtube.com`
    - **Minutes**: `30` (or your preferred limit)
    - Click **Add Site**
-3. Set your email address for unlock codes (optional)
+3. Start browsing - the extension will track your time automatically!
 
 ## 📖 How It Works
 
@@ -117,8 +119,6 @@ zone/
 | `/api/auth/init` | POST | Initialize user |
 | `/api/config` | POST | Get user rules and blocking status |
 | `/api/heartbeat` | POST | Track time spent on sites |
-| `/api/unlock/request` | POST | Request unlock code |
-| `/api/unlock/verify` | POST | Verify unlock code |
 
 ### Environment Variables
 
@@ -127,8 +127,6 @@ zone/
 | `MONGO_URI` | ✅ | - | MongoDB connection string |
 | `NODE_ENV` | ❌ | `development` | Environment mode |
 | `PORT` | ❌ | `3033` | Server port |
-| `EMAIL` | ❌ | - | Email for sending unlock codes |
-| `EMAIL_PASS` | ❌ | - | Email password/app password |
 
 
 ### Manual Testing
@@ -156,9 +154,9 @@ zone/
 
 For production, ensure:
 - MongoDB is accessible and secured
-- Email credentials are configured for unlock codes
 - CORS origins are properly set
 - Rate limiting is configured appropriately
+- Environment variables are properly configured
 
 ## 🤝 Contributing
 

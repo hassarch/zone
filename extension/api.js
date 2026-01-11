@@ -51,20 +51,6 @@ const api = {
       method: 'POST',
       body: { uuid, domain, seconds }
     });
-  },
-
-  async requestUnlock(uuid, domain) {
-    return this.request('/unlock/request', {
-      method: 'POST',
-      body: { uuid, domain }
-    });
-  },
-
-  async verifyUnlock(uuid, otp) {
-    return this.request('/unlock/verify', {
-      method: 'POST',
-      body: { uuid, otp }
-    });
   }
 };
 

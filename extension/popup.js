@@ -38,8 +38,6 @@ async function apiRequest(endpoint, options = {}) {
 const siteInput = document.getElementById("site");
 const limitInput = document.getElementById("limit");
 const list = document.getElementById("list");
-const emailInput = document.getElementById("email");
-const emailBtn = document.getElementById("setEmail");
 
 // Ensure user is initialized on backend when popup opens
 async function ensureUserInitialized() {
@@ -93,10 +91,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   await render();
   
-  const { uuid, email } = await chrome.storage.local.get(['uuid', 'email']);
-  if (email && emailInput) {
-    emailInput.value = email;
-  }
+  // Start live counter
+  startLiveCounter();
 });
 
 document.getElementById("add").onclick = async () => {
@@ -154,88 +150,123 @@ document.getElementById("add").onclick = async () => {
   await render();
 };
 
-if (emailBtn) {
-  emailBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    
-    if (!email || !email.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    const { uuid } = await chrome.storage.local.get(['uuid']);
-    if (!uuid) {
-      alert('UUID not found. Please reload the extension.');
-      return;
-    }
-
-    emailBtn.disabled = true;
-    emailBtn.textContent = 'Saving...';
-
-    try {
-      // First, ensure user is initialized on backend
-      try {
-        await apiRequest('/auth/init', {
-          method: 'POST',
-          body: { uuid }
-        });
-      } catch (initError) {
-        console.warn('Init check failed, continuing:', initError);
-      }
-
-      // Now save email to backend
-      await apiRequest('/auth/email', {
-        method: 'POST',
-        body: { uuid, email }
-      });
-      
-      await chrome.storage.local.set({ email });
-      emailBtn.textContent = 'Saved!';
-      emailBtn.style.background = '#10b981';
-      
-      setTimeout(() => {
-        emailBtn.textContent = 'Save Email';
-        emailBtn.style.background = '#3b82f6';
-        emailBtn.disabled = false;
-      }, 2000);
-      
-    } catch (error) {
-      emailBtn.disabled = false;
-      emailBtn.textContent = 'Save Email';
-      const errorMsg = error.message || 'Unknown error';
-      
-      // More helpful error messages
-      if (errorMsg.includes('not found')) {
-        alert('User not found. Please reload the extension or wait a moment and try again.');
-      } else if (errorMsg.includes('fetch')) {
-        alert('Cannot connect to server. Make sure the backend is running on http://localhost:3033');
-      } else {
-        alert('Failed to save email: ' + errorMsg);
-      }
-    }
-  };
-}
-
-// Live countdown timer
+// Live countdown timer and current site tracking
 let countdownInterval = null;
+let liveCounterInterval = null;
+let currentActiveTab = null;
 
-function startCountdown() {
-  // Clear existing interval
+function startLiveCounter() {
+  // Clear existing intervals
   if (countdownInterval) {
     clearInterval(countdownInterval);
   }
+  if (liveCounterInterval) {
+    clearInterval(liveCounterInterval);
+  }
   
-  // Update countdown every second
+  // Update live counter every 500ms for smoother updates
+  liveCounterInterval = setInterval(() => {
+    updateLiveCounter();
+  }, 500);
+  
+  // Update countdown every 500ms for accuracy
   countdownInterval = setInterval(() => {
     updateCountdown();
-  }, 1000);
+  }, 500);
   
-  // Initial update
+  // Initial updates
+  updateLiveCounter();
   updateCountdown();
 }
 
+async function updateLiveCounter() {
+  const liveCounter = document.getElementById('liveCounter');
+  const counterDomain = document.getElementById('counterDomain');
+  const counterTime = document.getElementById('counterTime');
+  const counterProgressBar = document.getElementById('counterProgressBar');
+  const counterUsed = document.getElementById('counterUsed');
+  const counterRemaining = document.getElementById('counterRemaining');
+  
+  try {
+    // Get current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url) {
+      liveCounter.classList.add('hidden');
+      return;
+    }
+    
+    const hostname = new URL(tab.url).hostname.toLowerCase().replace(/^www\./, '');
+    const { rules = [] } = await chrome.storage.local.get(['rules']);
+    
+    // Find rule for current domain
+    const rule = rules.find(r => {
+      const domain = (r.domain || '').toLowerCase().replace(/^www\./, '');
+      return hostname === domain || hostname.endsWith('.' + domain);
+    });
+    
+    if (!rule || !rule.dailyLimit) {
+      liveCounter.classList.add('hidden');
+      return;
+    }
+    
+    // Show counter
+    liveCounter.classList.remove('hidden');
+    currentActiveTab = rule.domain;
+    
+    const usedToday = Number(rule.usedToday || 0);
+    const dailyLimit = Number(rule.dailyLimit || 0);
+    const remaining = Math.max(0, dailyLimit - usedToday);
+    const remainingSeconds = Math.max(0, Math.floor(remaining * 60));
+    const usagePercent = dailyLimit > 0 ? Math.min(100, (usedToday / dailyLimit) * 100) : 0;
+    
+    // Update domain
+    counterDomain.textContent = rule.domain;
+    
+    // Update time display with better formatting
+    const hours = Math.floor(remainingSeconds / 3600);
+    const minutes = Math.floor((remainingSeconds % 3600) / 60);
+    const seconds = remainingSeconds % 60;
+    
+    if (hours > 0) {
+      counterTime.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    } else {
+      counterTime.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+    
+    // Update progress bar
+    counterProgressBar.style.width = `${usagePercent}%`;
+    
+    // Update stats
+    counterUsed.textContent = `${usedToday.toFixed(1)} min used`;
+    counterRemaining.textContent = `${remaining.toFixed(1)} min left`;
+    
+    // Update colors based on usage
+    const timeElement = counterTime;
+    const progressElement = counterProgressBar;
+    
+    // Remove existing classes
+    timeElement.classList.remove('warning', 'danger');
+    progressElement.classList.remove('warning', 'danger');
+    
+    if (usagePercent >= 100) {
+      timeElement.classList.add('danger');
+      progressElement.classList.add('danger');
+    } else if (usagePercent >= 80) {
+      timeElement.classList.add('danger');
+      progressElement.classList.add('danger');
+    } else if (usagePercent >= 60) {
+      timeElement.classList.add('warning');
+      progressElement.classList.add('warning');
+    }
+    
+  } catch (error) {
+    console.error('Live counter error:', error);
+    liveCounter.classList.add('hidden');
+  }
+}
+
 function updateCountdown() {
-  const countdownElements = list.querySelectorAll('.countdown[data-domain]');
+  const countdownElements = list.querySelectorAll('.rule-countdown[data-domain]');
   
   countdownElements.forEach(el => {
     const domain = el.getAttribute('data-domain');
@@ -247,18 +278,29 @@ function updateCountdown() {
       const limit = Number(rule.dailyLimit || 0);
       const remaining = Math.max(0, limit - usedToday);
       const remainingSeconds = Math.max(0, Math.floor(remaining * 60));
-      const minutes = Math.floor(remainingSeconds / 60);
+      const hours = Math.floor(remainingSeconds / 3600);
+      const minutes = Math.floor((remainingSeconds % 3600) / 60);
       const seconds = remainingSeconds % 60;
       const isBlocked = rule.block === true || (limit > 0 && usedToday >= limit);
+      const usagePercent = limit > 0 ? Math.min(100, (usedToday / limit) * 100) : 0;
       
       if (remainingSeconds > 0) {
-        el.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
-        el.style.color = remaining < limit * 0.2 ? '#f59e0b' : '#10b981';
-        el.style.fontWeight = 'normal';
+        if (hours > 0) {
+          el.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+          el.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+        }
+        
+        // Update color classes
+        el.classList.remove('warning', 'danger');
+        if (usagePercent >= 80) {
+          el.classList.add('danger');
+        } else if (usagePercent >= 60) {
+          el.classList.add('warning');
+        }
       } else {
-        el.textContent = 'LIMIT REACHED';
-        el.style.color = '#ef4444';
-        el.style.fontWeight = 'bold';
+        el.textContent = 'BLOCKED';
+        el.classList.add('danger');
       }
     });
   });
@@ -268,7 +310,7 @@ async function render() {
   // Ensure user is initialized before rendering
   const uuid = await ensureUserInitialized();
   if (!uuid) {
-    list.innerHTML = '<li style="color: red;">Failed to initialize. Please reload the extension.</li>';
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div>Failed to initialize. Please reload the extension.</div>';
     return;
   }
 
@@ -302,51 +344,57 @@ async function render() {
   const displayRules = currentRules.rules || rules;
   
   if (displayRules.length === 0) {
-    list.innerHTML = '<li style="color: #666;">No rules added yet</li>';
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div>No rules yet. Add a website to get started!</div>';
     return;
   }
 
   displayRules.forEach(r => {
     const li = document.createElement("li");
+    li.className = 'rule-item';
     li.setAttribute('data-domain', r.domain);
     
     const usedToday = Number(r.usedToday || 0);
     const limit = Number(r.dailyLimit || 0);
-    const used = Math.round(usedToday * 10) / 10; // Round to 1 decimal
     const remaining = Math.max(0, limit - usedToday);
     const isBlocked = r.block === true || (limit > 0 && usedToday >= limit);
     const remainingSeconds = Math.max(0, Math.floor(remaining * 60));
-    const minutes = Math.floor(remainingSeconds / 60);
+    const hours = Math.floor(remainingSeconds / 3600);
+    const minutes = Math.floor((remainingSeconds % 3600) / 60);
     const secs = remainingSeconds % 60;
+    const usagePercent = limit > 0 ? Math.min(100, (usedToday / limit) * 100) : 0;
+    
+    // Determine color class
+    let colorClass = '';
+    if (isBlocked || usagePercent >= 100) {
+      colorClass = 'danger';
+    } else if (usagePercent >= 80) {
+      colorClass = 'danger';
+    } else if (usagePercent >= 60) {
+      colorClass = 'warning';
+    }
+    
+    // Format time display
+    let timeDisplay;
+    if (remainingSeconds > 0) {
+      if (hours > 0) {
+        timeDisplay = `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      } else {
+        timeDisplay = `${minutes}:${String(secs).padStart(2, '0')}`;
+      }
+    } else {
+      timeDisplay = 'BLOCKED';
+    }
     
     li.innerHTML = `
-      <div style="display: flex; flex-direction: column; padding: 8px 0; border-bottom: 1px solid #eee;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: 500;">${r.domain}</span>
-          <button class="remove-btn" data-domain="${r.domain}" style="
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-          ">×</button>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-          <span class="countdown" data-domain="${r.domain}" style="
-            color: ${isBlocked ? '#ef4444' : remaining < limit * 0.2 ? '#f59e0b' : '#10b981'};
-            font-size: 14px;
-            font-weight: ${isBlocked ? 'bold' : 'normal'};
-          ">${remainingSeconds > 0 ? `${minutes}:${String(secs).padStart(2, '0')}` : 'LIMIT REACHED'}</span>
-          <span style="color: ${isBlocked ? '#ef4444' : remaining < limit * 0.2 ? '#f59e0b' : '#10b981'}; font-size: 12px;">
-            ${used.toFixed(1)}/${limit} min used
-          </span>
+      <div class="rule-info">
+        <div class="rule-domain">${r.domain}</div>
+        <div class="rule-stats">
+          <span class="rule-countdown ${colorClass}" data-domain="${r.domain}">${timeDisplay}</span>
+          <span>•</span>
+          <span>${usedToday.toFixed(1)}/${limit} min</span>
         </div>
       </div>
+      <button class="remove-btn" data-domain="${r.domain}">×</button>
     `;
     
     const removeBtn = li.querySelector('.remove-btn');
@@ -378,13 +426,14 @@ async function render() {
     list.appendChild(li);
   });
   
-  // Start countdown timer
-  startCountdown();
+  // Start countdown timer and live counter
+  startLiveCounter();
   
-  // Listen for storage changes to update countdown
+  // Listen for storage changes to update countdown and live counter
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local' && changes.rules) {
       updateCountdown();
+      updateLiveCounter();
     }
   });
 }

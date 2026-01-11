@@ -82,7 +82,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/config', configLimiter, require('./routes/config')); // Use more lenient limiter for config
 app.use('/api/heartbeat', require('./routes/heartbeat'));
-app.use('/api/unlock', require('./routes/unlock'));
+// Email/OTP unlock feature removed - not needed
 
 // 404 handler
 app.use(notFoundHandler);
@@ -96,7 +96,7 @@ const startServer = async () => {
   try {
     await connectDB();
     server = app.listen(config.port, () => {
-      console.log(`✅ Zone server running on port ${config.port} (${config.env} mode)`);
+      console.log(`Zone server running on port ${config.port} (${config.env} mode)`);
     });
 
     // Handle server errors
