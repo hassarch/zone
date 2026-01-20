@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: zone-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    environment:
+      MONGO_INITDB_DATABASE: zone
+    networks:
+      - zone-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/zone --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zone-server
+    restart: unless-stopped
+    ports:
+      - "3033:3033"
+    environment:
+      NODE_ENV: production
+      PORT: 3033
+      MONGO_URI: mongodb://mongodb:27017/zone
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - zone-network
+    volumes:
+      - ./server/logs:/app/logs
+
+networks:
+  zone-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  mongodb_config:

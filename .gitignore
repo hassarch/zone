@@ -50,3 +50,6 @@ check-*.js
 *_COMPLETED.md
 QUICKSTART.md
 GMAIL_SETUP.md
+
+# Docker
+docker-compose.override.yml

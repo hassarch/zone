@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: zone-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data_dev:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: zone
+    networks:
+      - zone-network-dev
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zone-server-dev
+    restart: unless-stopped
+    ports:
+      - "3033:3033"
+    environment:
+      NODE_ENV: development
+      PORT: 3033
+      MONGO_URI: mongodb://mongodb:27017/zone
+    depends_on:
+      - mongodb
+    networks:
+      - zone-network-dev
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - ./server/logs:/app/logs
+    command: npm run dev
+
+networks:
+  zone-network-dev:
+    driver: bridge
+
+volumes:
+  mongodb_data_dev:

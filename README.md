@@ -23,9 +23,9 @@
 
 ### Prerequisites
 
-- **Node.js** 18.0.0 or higher
-- **MongoDB** (local or cloud)
 - **Chrome Browser** (or Chromium-based)
+- **Docker & Docker Compose** (recommended) OR
+- **Node.js** 18.0.0 or higher + **MongoDB** (manual setup)
 
 ### 1. Clone the Repository
 
@@ -35,6 +35,31 @@ cd zone
 ```
 
 ### 2. Backend Setup
+
+#### Option A: Docker (Recommended)
+
+Start both MongoDB and the server with one command:
+
+```bash
+# Development mode with hot reload
+docker-compose -f docker-compose.dev.yml up
+
+# Production mode
+docker-compose up -d
+```
+
+The server will be available at `http://localhost:3033`
+
+To stop:
+```bash
+# Development
+docker-compose -f docker-compose.dev.yml down
+
+# Production
+docker-compose down
+```
+
+#### Option B: Manual Setup
 
 ```bash
 cd server
@@ -50,7 +75,6 @@ MONGO_URI=mongodb://localhost:27017/zone
 ```
 
 **Note:** Email configuration is no longer needed as the unlock feature has been removed.
-```
 
 Start the server:
 
@@ -91,6 +115,53 @@ Server updates usedToday ← Content script blocks page ← Limit exceeded?
 2. **Content Script** - Monitors pages and displays blocking overlay when limits are reached
 3. **Server API** - Stores usage data and calculates blocking status
 4. **Popup Interface** - Manages rules and displays real-time statistics
+
+## 🐳 Docker Commands
+
+### Development
+```bash
+# Start services with hot reload
+docker-compose -f docker-compose.dev.yml up
+
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f server
+
+# Rebuild after dependency changes
+docker-compose -f docker-compose.dev.yml up --build
+
+# Stop services
+docker-compose -f docker-compose.dev.yml down
+```
+
+### Production
+```bash
+# Start services in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f server
+
+# Restart services
+docker-compose restart
+
+# Stop and remove containers
+docker-compose down
+
+# Stop and remove containers + volumes (deletes data)
+docker-compose down -v
+```
+
+### Useful Commands
+```bash
+# Access MongoDB shell
+docker exec -it zone-mongodb mongosh zone
+
+# Access server container
+docker exec -it zone-server sh
+
+# Check service health
+docker-compose ps
+```
 
 ## 🛠️ Development
 
